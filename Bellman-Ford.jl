@@ -1,7 +1,9 @@
 l = Dict(("A","B")=>3,("A","E")=>5,("E","B")=>1,
 ("B","C")=>4,("C","D")=>2,("E","D")=>9,("D","F")=>3)
+l1 = Dict(("A","B")=>0.3,("A","E")=>0.5,("E","B")=>0.1,
+("B","C")=>0.4,("C","D")=>-0.2,("E","D")=>0.9,("D","F")=>0.3,("D","B")=>-0.3)
+noms = ["A","B","C","D","E","F"]
 
-n = ["A","B","C","D","E","F"]
 
 function getPoids(i,j, Liaisons, Noms)
     return Liaisons[(Noms[i],Noms[j])]
@@ -18,11 +20,14 @@ function getIndice(nom, Liaisons, Noms)
     end
 end
 
-function bellmanFord(Start, minmax, modecalc, Liaisons, Noms)
+function bellmanFord(Start, minmax, modecalc,iterations, Liaisons, Noms)
     nbSommets = length(Noms)
     nbLiaisons = length(keys(Liaisons))
-    nbIt = nbSommets
-    
+    if iterations == -1
+        nbIt = nbSommets
+    else 
+        nbIt = iterations
+    end
     start = getIndice(Start, Liaisons, Noms)
     #Preparation
     Resultats = zeros(nbIt,nbSommets)
@@ -92,24 +97,28 @@ function bellmanFord(Start, minmax, modecalc, Liaisons, Noms)
     return Resultats,Passages
 end
 
-function chemin(Start, Finish, minmax,modecalc, Liaisons, Noms)
-    dist,noms = bellmanFord(Start, minmax,modecalc, Liaisons, Noms)
-    it = size(noms,1)
-    start = getIndice(Start, Liaisons, Noms)
-    finish = getIndice(Finish, Liaisons, Noms)
-    result = [Finish]
-    cible=finish
-    while cible != start
-        cible = getIndice(noms[it,cible], Liaisons, Noms)
-        ncible = Noms[cible]
-        push!(result,ncible)
-        it-=1
+function chemin(Start, Finish, minmax,modecalc,nbIterations, Liaisons, Noms)
+    try
+        dist,noms = bellmanFord(Start, minmax,modecalc,nbIterations, Liaisons, Noms)
+        it = size(noms,1)
+        start = getIndice(Start, Liaisons, Noms)
+        finish = getIndice(Finish, Liaisons, Noms)
+        result = [Finish]
+        cible=finish
+        while cible != start
+            cible = getIndice(noms[it,cible], Liaisons, Noms)
+            ncible = Noms[cible]
+            push!(result,ncible)
+            it-=1
+        end
+        push!(result,"Cout : " * string(dist[size(noms,1),finish]))
+        return reverse(result)
+    catch err
+        return ["Pas de solution"]
     end
-    push!(result,"Cout : " * string(dist[size(noms,1),finish]))
-    return reverse(result)
 end
 
 # depart, arrivee, max/min = chemin maximisant ou minimisant
 # plusFaible/plusFort/somme = mode de calcul de l'effet des arretes
-
-chemin("A","F","min","somme", l, n)
+# -1 pour nombre d'iterations par defaut, n pour n iterations
+display(chemin("A","F","min","produit",-1, l1, noms))
