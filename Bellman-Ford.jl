@@ -111,6 +111,7 @@ function tableTransition2Dict(Table)
             end
         end
     end
+    return noms,transitions
 end
 
 function chemin(Start, Finish, minmax,modecalc,nbIterations, Liaisons, Noms)
@@ -137,4 +138,4 @@ end
 # depart, arrivee, max/min = chemin maximisant ou minimisant
 # plusFaible/plusFort/somme = mode de calcul de l'effet des arretes
 # -1 pour nombre d'iterations par defaut, n pour n iterations
-display(chemin("A","F","min","produit",-1, l1, noms))
+display(chemin("A","F","max","produit",-1, l1, noms))
