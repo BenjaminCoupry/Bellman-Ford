@@ -97,6 +97,22 @@ function bellmanFord(Start, minmax, modecalc,iterations, Liaisons, Noms)
     return Resultats,Passages
 end
 
+function tableTransition2Dict(Table)
+    n = size(Table)[1]
+    noms = []
+    transitions = Dict()
+    for i in 1:n
+        push!(noms,string(i))
+    end
+    for i in 1:n
+        for j in 1:n
+            if Table[i,j] != Missing
+                transitions[(string(i),string(j))] = Table[i,j]
+            end
+        end
+    end
+end
+
 function chemin(Start, Finish, minmax,modecalc,nbIterations, Liaisons, Noms)
     try
         dist,noms = bellmanFord(Start, minmax,modecalc,nbIterations, Liaisons, Noms)
