@@ -4,6 +4,11 @@ l1 = Dict(("A","B")=>0.3,("A","E")=>0.5,("E","B")=>0.1,
 ("B","C")=>0.4,("C","D")=>-0.2,("E","D")=>0.9,("D","F")=>0.3,("D","B")=>-0.3)
 noms = ["A","B","C","D","E","F"]
 
+disjonctions = [[("D","C")=>10,("C","D")=>20],[("F","C")=>11,("F","D")=>21]]
+choix = [2,2]
+
+taches = Dict("A"=>(2,[],[]),"B"=>(3,["A"],[]),"C"=>(1,["A"],[]),"D"=>(4,["B","C"],[]),"E"=>(1,["C"],[]))
+travaux = [[(6,["M1"]),(7,["M3"])],[(3,["M1"]),(5,["M2"]),(1,["M3"])]]
 
 function getPoids(i,j, Liaisons, Noms)
     return Liaisons[(Noms[i],Noms[j])]
@@ -18,6 +23,131 @@ function getIndice(nom, Liaisons, Noms)
             return i
         end
     end
+end
+
+function getSuccesseursTache(nom_tache,Taches)
+    res = []
+    for ntache in keys(Taches)
+        tache = Taches[ntache]
+        pred = tache[2]
+        if nom_tache in pred
+            push!(res,ntache)
+        end
+    end
+    return res
+end
+#Taches est un dict de taches
+#une tache est nom=>(duree,[] des noms des predecesseurs,[] des noms des ressources utilisees)
+function Taches2Transitions(Taches)
+    noms = ["Debut","Fin"]
+    liaisons = Dict()
+    usageRessources = Dict()
+    for ntache in keys(Taches)
+        push!(noms,ntache)
+        tache = Taches[ntache]
+        succ = getSuccesseursTache(ntache,Taches)
+        pred = tache[2]
+        duree = tache[1]
+        ress = tache[3]
+        if length(succ) ==0
+            liaisons[(ntache,"Fin")] = duree
+        end
+        if length(pred) ==0
+            liaisons[("Debut",ntache)] = 0
+        end
+        for successeur in succ
+            liaisons[(ntache,successeur)] = duree
+        end
+        for ressource in ress
+            if ressource != ""
+                if haskey(usageRessources,ressource)
+                    push!(usageRessources[ressource],(ntache,duree))
+                else
+                    usageRessources[ressource]=[(ntache,duree)]
+                end
+            end
+        end
+    end
+    djctions = usageRessource2Disjonctions(usageRessources)
+    return noms,liaisons,djctions
+end
+
+#usageRessources est un dict, les clefs sont les noms des ressources, les valeurs sont la liste des  (nom,temps) des taches qui utilisent cette ressource. 
+function usageRessource2Disjonctions(UsageRessources)
+    Disjonctions = []
+    for ressource in keys(UsageRessources)
+        usage = UsageRessources[ressource]
+        n = length(usage)
+        for moi in 1:n 
+            nom_moi = usage[moi][1]
+            temps_moi = usage[moi][2]
+            for lui in moi+1:n 
+                nom_lui = usage[lui][1]
+                temps_lui = usage[lui][2]
+                disjonct = [(nom_moi,nom_lui)=>temps_moi,(nom_lui,nom_moi)=>temps_lui]
+                push!(Disjonctions,disjonct)
+            end
+        end
+    end
+    return Disjonctions
+end
+# travaux est une liste de travail
+#un travail est une liste de taches
+#une tache est (temps,[] de nom_ressource utilisees), mettre "" si pas de ressource
+
+function travaux2Transitions(Travaux)
+    noms = ["Debut","Fin"]
+    liaisons = Dict()
+    usageRessources = Dict()
+    tr=1
+    for travail in Travaux
+        ta=1
+        precedent = "Debut"
+        temps_preced=0
+        for tache in travail
+            nom = "travail"*string(tr)*"_tache"*string(ta)
+            push!(noms,nom)
+            temps = tache[1]
+            ressources = tache[2]
+            for ressource in ressources
+                if ressource != ""
+                    if haskey(usageRessources,ressource)
+                        push!(usageRessources[ressource],(nom,temps))
+                    else
+                        usageRessources[ressource]=[(nom,temps)]
+                    end
+                end
+            end
+            liaisons[(precedent,nom)] = temps_preced
+            temps_preced=temps
+            precedent = nom
+            ta+=1
+        end
+        liaisons[(precedent,"Fin")] = temps_preced
+        tr+=1
+    end
+    djctions = usageRessource2Disjonctions(usageRessources)
+    return noms,liaisons,djctions
+end
+
+#ajoute aux liaisons les disjonctions données en prenant pour la ieme disjonction l'option spécifiée par le ieme element de choix,choix[i]=0 pour ne rien choisir
+function ajouterLiaisonsDisjonctions(Liaisons, Disjonctions, Noms, Choix)
+
+    liaisons_etendues = deepcopy(Liaisons)
+    for i in 1:length(Choix)
+        possibilites = Disjonctions[i]
+        choix_local = Choix[i]
+        if choix_local != 0 
+            kv = possibilites[choix_local]
+            k,v=kv
+            if haskey(liaisons_etendues,k)
+                liaisons_etendues[k]=max(v,liaisons_etendues[k])
+            else
+                liaisons_etendues[k]=v
+            end
+        end
+    end
+    return liaisons_etendues,noms
 end
 
 function bellmanFord(Start, minmax, modecalc,iterations, Liaisons, Noms)
@@ -97,6 +227,7 @@ function bellmanFord(Start, minmax, modecalc,iterations, Liaisons, Noms)
     return Resultats,Passages
 end
 
+#convertit une table de transition en dictionaire des transitions
 function tableTransition2Dict(Table)
     n = size(Table)[1]
     noms = []
@@ -114,6 +245,12 @@ function tableTransition2Dict(Table)
     return noms,transitions
 end
 
+# depart, arrivee, max/min = chemin maximisant ou minimisant
+# plusFaible/plusFort/somme = mode de calcul de l'effet des arretes
+# -1 pour nombre d'iterations par defaut, n pour n iterations
+#noms la liste des noms des Sommets
+#l2 le dict des transitions, clefs (nomDepart,nomArrivee), valeurs poids des arcs
+#display(chemin("A","F","max","produit",-1, l2, noms))
 function chemin(Start, Finish, minmax,modecalc,nbIterations, Liaisons, Noms)
     try
         dist,noms = bellmanFord(Start, minmax,modecalc,nbIterations, Liaisons, Noms)
@@ -138,4 +275,11 @@ end
 # depart, arrivee, max/min = chemin maximisant ou minimisant
 # plusFaible/plusFort/somme = mode de calcul de l'effet des arretes
 # -1 pour nombre d'iterations par defaut, n pour n iterations
-display(chemin("A","F","max","produit",-1, l1, noms))
+#l2,noms=ajouterLiaisonsDisjonctions(l1, disjonctions, noms, choix)
+#display(chemin("A","F","max","produit",-1, l2, noms))
+
+#noms,liaisons,djctions = travaux2Transitions(travaux)
+noms,liaisons,djctions = Taches2Transitions(taches)
+display(noms)
+display(liaisons)
+display(djctions)
