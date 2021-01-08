@@ -150,6 +150,27 @@ function ajouterLiaisonsDisjonctions(Liaisons, Disjonctions, Noms, Choix)
     return liaisons_etendues,noms
 end
 
+#ajoute aux liaisons les disjonctions données en prenant pour la 1ere disjonction l'option spécifiée par choix,choix=0 pour ne rien ajouter
+function consommerDisjonction(Liaisons, Disjonctions, Noms, Choix)
+    liaisons_etendues = deepcopy(Liaisons)
+    Disjonctions_nouv = deepcopy(Disjonctions)
+
+    if length(Disjonctions)>0
+        possibilites = Disjonctions[1]
+        if Choix != 0 
+            kv = possibilites[Choix]
+            k,v=kv
+            if haskey(liaisons_etendues,k)
+                liaisons_etendues[k]=max(v,liaisons_etendues[k])
+            else
+                liaisons_etendues[k]=v
+            end
+        end
+        deleteat!(Disjonctions_nouv,1)
+    end
+    return liaisons_etendues,Disjonctions_nouv,Noms
+end
+
 function bellmanFord(Start, minmax, modecalc,iterations, Liaisons, Noms)
     nbSommets = length(Noms)
     nbLiaisons = length(keys(Liaisons))
